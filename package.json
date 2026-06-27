@@ -1,0 +1,20 @@
+{
+  "name": "clinical-loop-map",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build:pages": "GITHUB_PAGES=true next build",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "lucide-react": "^1.21.0",
+    "next": "^15.5.18",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
+  }
+}
