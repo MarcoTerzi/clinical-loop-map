@@ -3,702 +3,373 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
-  AlertTriangle,
-  Bell,
   Brain,
   CalendarDays,
-  CheckCircle2,
-  ChevronRight,
+  Check,
   ClipboardList,
-  Dumbbell,
-  FileText,
-  Filter,
-  FlaskConical,
   HeartPulse,
-  LineChart,
-  Map as MapIcon,
+  ListChecks,
+  Map,
   Moon,
-  Plus,
   Search,
   ShieldCheck,
-  Stethoscope,
+  Sparkles,
   Sun,
-  Users,
   UserRound,
 } from "lucide-react";
-import BodyMap, {
-  allFilterIds,
-  getAreaFindings,
-  getAreaSeverity,
-  getSelectedArea,
-} from "@/app/components/BodyMap";
+import BodyMap3D from "@/app/components/body-map-3d/BodyMap3D";
 import {
-  aiCards,
-  assessmentRows,
-  bodyAreaCount,
-  bodyRegionCount,
-  exerciseRows,
-  findings,
-  findingFilters,
-  loopSteps,
-  metrics,
-  networkRows,
+  assessmentItems,
+  clinicalLoop,
+  mapRegions,
   patient,
-  patients,
   planItems,
-  promTrend,
-  protocolRows,
-  timeline,
-} from "@/app/data/clinicalData";
+  promItems,
+  todayActions,
+} from "@/app/data/productData";
 
-const navItems = [
-  { label: "Cartella", icon: UserRound, active: true },
-  { label: "Mappa", icon: MapIcon },
-  { label: "Assessment", icon: ClipboardList },
-  { label: "Piano", icon: CalendarDays },
-  { label: "MyLab", icon: FlaskConical },
-  { label: "Analytics", icon: LineChart },
-  { label: "Network", icon: Users },
+const sections = [
+  { id: "today", label: "Oggi", icon: ListChecks },
+  { id: "map", label: "Body map 3D", icon: Map },
+  { id: "assessment", label: "Valutazione", icon: ClipboardList },
+  { id: "plan", label: "Piano", icon: CalendarDays },
+  { id: "monitor", label: "Monitoraggio", icon: Activity },
 ];
 
+const filterLabels = {
+  symptom: "sintomi",
+  dysfunction: "disfunzioni",
+  trigger: "trigger",
+  rom: "ROM",
+  strength: "forza",
+  history: "storico",
+};
+
+const allTypes = Object.keys(filterLabels);
+
+function severityLabel(value) {
+  if (value >= 0.75) return "critico";
+  if (value >= 0.45) return "moderato";
+  return "lieve";
+}
+
 function toneClass(value) {
-  if (value === "alto" || value === "critico") return "tone-high";
-  if (value === "medio" || value === "moderato") return "tone-mid";
+  if (value === "critico") return "tone-high";
+  if (value === "moderato") return "tone-mid";
   return "tone-low";
 }
 
-function IconButton({ children, title, onClick, active }) {
+function SectionNav({ activeSection, setActiveSection }) {
   return (
-    <button
-      type="button"
-      className={`icon-button ${active ? "active" : ""}`}
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <nav className="section-nav" aria-label="Sezioni app">
+      {sections.map((section) => {
+        const Icon = section.icon;
+        return (
+          <button
+            type="button"
+            key={section.id}
+            className={activeSection === section.id ? "active" : ""}
+            onClick={() => setActiveSection(section.id)}
+          >
+            <Icon size={18} />
+            <span>{section.label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
-function Sidebar() {
+function AppHeader({ theme, setTheme }) {
   return (
-    <aside className="sidebar">
-      <div className="mark" aria-label="Clinical loop">
-        <HeartPulse size={22} />
-      </div>
-      <nav className="rail-nav" aria-label="Navigazione principale">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              type="button"
-              key={item.label}
-              className={item.active ? "active" : ""}
-              title={item.label}
-              aria-label={item.label}
-            >
-              <Icon size={19} />
-            </button>
-          );
-        })}
-      </nav>
-    </aside>
-  );
-}
-
-function PatientStrip() {
-  return (
-    <section className="patient-strip">
-      <div className="patient-main">
-        <div className="avatar" aria-hidden="true">
-          GR
+    <header className="app-header">
+      <div className="brand-block">
+        <div className="brand-mark">
+          <HeartPulse size={21} />
         </div>
         <div>
-          <div className="eyebrow">cartella paziente</div>
-          <h1>{patient.name}</h1>
-          <p>{patient.summary}</p>
-          <div className="tag-row">
-            {patient.tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
+          <span>ClinicaOS</span>
+          <strong>{patient.name}</strong>
         </div>
       </div>
-      <div className="patient-meta">
+      <div className="header-actions">
+        <div className="search-pill">
+          <Search size={16} />
+          <span>Cerca paziente</span>
+        </div>
+        <button
+          type="button"
+          className="icon-action"
+          aria-label="Tema"
+          title="Tema"
+          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+        >
+          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function PatientSummary({ setActiveSection }) {
+  return (
+    <section className="patient-focus">
+      <div>
+        <span className="kicker">cartella attiva</span>
+        <h1>{patient.reason}</h1>
+        <p>{patient.nextStep}</p>
+      </div>
+      <div className="patient-state">
         <div>
           <span>Stato</span>
           <strong>{patient.status}</strong>
         </div>
         <div>
-          <span>Prossima visita</span>
-          <strong>{patient.nextVisit}</strong>
-        </div>
-        <div>
           <span>Consensi</span>
-          <strong className="with-icon">
-            <ShieldCheck size={15} />
-            {patient.consent}
+          <strong>
+            <ShieldCheck size={16} />
+            attivi
           </strong>
         </div>
+        <button type="button" onClick={() => setActiveSection("map")}>
+          apri body map
+        </button>
       </div>
     </section>
   );
 }
 
-function PatientList() {
+function TodayView({ setActiveSection }) {
   return (
-    <section className="side-panel">
-      <div className="panel-header compact">
-        <div>
-          <h2>Pazienti</h2>
-          <p>Lista rapida</p>
-        </div>
-        <IconButton title="Nuovo paziente">
-          <Plus size={17} />
-        </IconButton>
+    <section className="view-grid today-grid">
+      <div className="focus-panel main-task">
+        <span className="kicker">prossima cosa utile</span>
+        <h2>Rivaluta la zona lombare prima di cambiare il piano.</h2>
+        <p>L’app tiene il resto fuori dalla vista finche non serve.</p>
+        <button type="button" onClick={() => setActiveSection("map")}>
+          vai alla body map 3D
+        </button>
       </div>
-      <div className="patient-search">
-        <Search size={15} />
-        <span>Cerca paziente</span>
-      </div>
-      <div className="patient-list">
-        {patients.map((row) => (
-          <button type="button" key={row.name} className={row.name === patient.name ? "active" : ""}>
+
+      <div className="action-stack">
+        {todayActions.map((action) => (
+          <button type="button" key={action.id} onClick={() => setActiveSection(action.target)}>
             <span>
-              <strong>{row.name}</strong>
-              <small>{row.status}</small>
+              <strong>{action.title}</strong>
+              <small>{action.detail}</small>
             </span>
-            <i className={toneClass(row.risk)}>{row.risk}</i>
           </button>
         ))}
       </div>
-    </section>
-  );
-}
 
-function MetricGrid() {
-  return (
-    <div className="metric-grid">
-      {metrics.map((metric) => (
-        <div className="metric" key={metric.label}>
-          <span>{metric.label}</span>
-          <strong>{metric.value}</strong>
-          <i className={metric.tone === "ok" ? "positive" : "warning"}>{metric.delta}</i>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LoopPanel() {
-  return (
-    <section className="card loop-card">
-      <div className="panel-header">
-        <div>
-          <h2>Loop clinico</h2>
-          <p>Motivo, valutazione, piano, azione, monitoraggio</p>
-        </div>
-        <Stethoscope size={19} />
-      </div>
-      <div className="loop-list">
-        {loopSteps.map((step, index) => (
-          <article key={step.label} className="loop-step">
-            <div className="loop-index">{index + 1}</div>
-            <div>
-              <header>
-                <strong>{step.label}</strong>
-                <span>{step.state}</span>
-              </header>
-              <p>{step.detail}</p>
-              <small>{step.updated}</small>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MapToolbar({
-  view,
-  setView,
-  timeIndex,
-  setTimeIndex,
-  activeFilters,
-  toggleFilter,
-  activeDate,
-}) {
-  return (
-    <div className="map-toolbar">
-      <div className="segmented" aria-label="Vista mappa">
-        <button type="button" className={view === "front" ? "active" : ""} onClick={() => setView("front")}>
-          anteriore
-        </button>
-        <button type="button" className={view === "back" ? "active" : ""} onClick={() => setView("back")}>
-          posteriore
-        </button>
-      </div>
-      <div className="filter-row">
-        <span>
-          <Filter size={14} />
-          filtri
-        </span>
-        {findingFilters.map((filter) => (
-          <button
-            type="button"
-            key={filter.id}
-            className={activeFilters.has(filter.id) ? "active" : ""}
-            onClick={() => toggleFilter(filter.id)}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-      <div className="time-control">
-        <div>
-          <span>Timeline</span>
-          <strong>{timeline[timeIndex].label}</strong>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max={timeline.length - 1}
-          value={timeIndex}
-          aria-label="Timeline clinica"
-          onChange={(event) => setTimeIndex(Number(event.target.value))}
-        />
-        <small>{activeDate}</small>
-      </div>
-    </div>
-  );
-}
-
-function AreaDetails({ area, selectedFindings, severity }) {
-  const hasFindings = selectedFindings.length > 0;
-  const severityLabel = severity > 0.72 ? "critico" : severity > 0.4 ? "moderato" : severity > 0 ? "lieve" : "nessun rilievo";
-
-  return (
-    <aside className="area-details">
-      <div className="area-title">
-        <div>
-          <span>{area.region}</span>
-          <h3>{area.label}</h3>
-        </div>
-        <i className={toneClass(severityLabel)}>{severityLabel}</i>
-      </div>
-      {hasFindings ? (
-        <div className="finding-list">
-          {selectedFindings.map((finding) => (
-            <article key={finding.id}>
-              <header>
-                <strong>{finding.label}</strong>
-                <span>{finding.date}</span>
-              </header>
-              <p>{finding.note}</p>
-              <div className="finding-meta">
-                <span>{finding.type}</span>
-                <span>{finding.taxonomy}</span>
-                <span>{finding.source}</span>
-              </div>
-              <div className="measure-grid">
-                {finding.measures.map((measure) => (
-                  <div key={measure.label}>
-                    <span>{measure.label}</span>
-                    <strong>{measure.value}</strong>
-                    <small>{measure.trend}</small>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state">
-          <CheckCircle2 size={18} />
-          <span>Nessun rilievo filtrato su questa area.</span>
-        </div>
-      )}
-    </aside>
-  );
-}
-
-function MapCard({
-  view,
-  setView,
-  selectedAreaId,
-  setSelectedAreaId,
-  timeIndex,
-  setTimeIndex,
-  activeFilters,
-  toggleFilter,
-}) {
-  const activeDate = timeline[timeIndex].date;
-  const area = getSelectedArea(selectedAreaId);
-  const selectedFindings = getAreaFindings(selectedAreaId, activeDate, activeFilters);
-  const severity = getAreaSeverity(selectedAreaId, activeDate, activeFilters);
-
-  return (
-    <section className="card map-card">
-      <div className="panel-header map-heading">
-        <div>
-          <h2>Mappa corporea</h2>
-          <p>
-            {bodyAreaCount} aree anatomiche, {bodyRegionCount} regioni topografiche
-          </p>
-        </div>
-        <div className="map-count">
-          <Activity size={17} />
-          drill-down attivo
-        </div>
-      </div>
-      <MapToolbar
-        view={view}
-        setView={setView}
-        timeIndex={timeIndex}
-        setTimeIndex={setTimeIndex}
-        activeFilters={activeFilters}
-        toggleFilter={toggleFilter}
-        activeDate={activeDate}
-      />
-      <div className="map-layout">
-        <BodyMap
-          view={view}
-          selectedAreaId={selectedAreaId}
-          onSelect={setSelectedAreaId}
-          activeDate={activeDate}
-          activeFilters={activeFilters}
-        />
-        <AreaDetails area={area} selectedFindings={selectedFindings} severity={severity} />
-      </div>
-    </section>
-  );
-}
-
-function AssessmentPanel() {
-  return (
-    <section className="card">
-      <div className="panel-header">
-        <div>
-          <h2>Assessment</h2>
-          <p>Misure che alimentano la mappa</p>
-        </div>
-        <ClipboardList size={18} />
-      </div>
-      <div className="table-list">
-        {assessmentRows.map((row) => (
-          <div key={row.test}>
+      <div className="loop-strip">
+        {clinicalLoop.map((item, index) => (
+          <button type="button" key={item.id} onClick={() => setActiveSection(item.id === "reason" ? "today" : item.id)}>
+            <i>{index + 1}</i>
             <span>
-              <strong>{row.test}</strong>
-              <small>{row.side}</small>
-            </span>
-            <b>{row.value}</b>
-            <i className={toneClass(row.flag)}>{row.flag}</i>
-            <em>{row.push}</em>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PlanPanel() {
-  return (
-    <section className="card">
-      <div className="panel-header">
-        <div>
-          <h2>Piano attività</h2>
-          <p>Calendario paziente</p>
-        </div>
-        <CalendarDays size={18} />
-      </div>
-      <div className="timeline-list">
-        {planItems.map((item) => (
-          <article key={`${item.when}-${item.title}`}>
-            <time>{item.when}</time>
-            <div>
-              <span>{item.type}</span>
-              <strong>{item.title}</strong>
+              <strong>{item.label}</strong>
               <small>{item.status}</small>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PromChart() {
-  const pointsPain = promTrend
-    .map((row, index) => `${38 + index * 73},${172 - row.pain * 1.35}`)
-    .join(" ");
-  const pointsFunction = promTrend
-    .map((row, index) => `${38 + index * 73},${172 - row.function * 1.35}`)
-    .join(" ");
-
-  return (
-    <section className="card chart-card">
-      <div className="panel-header">
-        <div>
-          <h2>Monitoraggio PROMs</h2>
-          <p>Dolore e funzione nel tempo</p>
-        </div>
-        <LineChart size={18} />
-      </div>
-      <svg viewBox="0 0 360 190" className="prom-chart" aria-label="Trend PROM">
-        {[0, 1, 2, 3].map((line) => (
-          <line key={line} x1="28" x2="336" y1={32 + line * 40} y2={32 + line * 40} />
-        ))}
-        <polyline points={pointsPain} className="line pain" />
-        <polyline points={pointsFunction} className="line function" />
-        {promTrend.map((row, index) => (
-          <g key={row.label}>
-            <circle cx={38 + index * 73} cy={172 - row.pain * 1.35} r="4" className="dot pain" />
-            <circle cx={38 + index * 73} cy={172 - row.function * 1.35} r="4" className="dot function" />
-            <text x={38 + index * 73} y="184">
-              {row.label}
-            </text>
-          </g>
-        ))}
-      </svg>
-      <div className="chart-legend">
-        <span>
-          <i className="pain" />
-          dolore
-        </span>
-        <span>
-          <i className="function" />
-          funzione
-        </span>
-      </div>
-    </section>
-  );
-}
-
-function LibraryPanel() {
-  return (
-    <section className="card library-card">
-      <div className="panel-header">
-        <div>
-          <h2>MyLab</h2>
-          <p>Protocolli ed esercizi</p>
-        </div>
-        <FlaskConical size={18} />
-      </div>
-      <div className="split-list">
-        <div>
-          <h3>Protocolli</h3>
-          {protocolRows.map((row) => (
-            <article key={row.name}>
-              <strong>{row.name}</strong>
-              <span>
-                {row.days} - {row.items}
-              </span>
-              <i>{row.state}</i>
-            </article>
-          ))}
-        </div>
-        <div>
-          <h3>Esercizi</h3>
-          {exerciseRows.map((row) => (
-            <article key={row.name}>
-              <strong>{row.name}</strong>
-              <span>{row.rx}</span>
-              <div className="mini-tags">
-                {row.tags.map((tag) => (
-                  <em key={tag}>{tag}</em>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AiPanel() {
-  return (
-    <section className="card ai-card">
-      <div className="panel-header">
-        <div>
-          <h2>Revisione clinica assistita</h2>
-          <p>Bozze modificabili prima del salvataggio</p>
-        </div>
-        <Brain size={18} />
-      </div>
-      <div className="ai-list">
-        {aiCards.map((card) => (
-          <article key={card.title}>
-            <header>
-              <strong>{card.title}</strong>
-              <span>{card.state}</span>
-            </header>
-            <p>{card.body}</p>
-            <button type="button">
-              rivedi
-              <ChevronRight size={15} />
-            </button>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function NetworkPanel() {
-  return (
-    <section className="card network-card">
-      <div className="panel-header">
-        <div>
-          <h2>Network e consensi</h2>
-          <p>Accessi granulari</p>
-        </div>
-        <Users size={18} />
-      </div>
-      <div className="network-list">
-        {networkRows.map((row) => (
-          <div key={row.person}>
-            <span>
-              <strong>{row.person}</strong>
-              <small>{row.access}</small>
             </span>
-            <i>{row.state}</i>
-          </div>
+          </button>
         ))}
       </div>
     </section>
   );
 }
 
-export default function ClinicalPlatformApp() {
-  const [theme, setTheme] = useState("light");
-  const [view, setView] = useState("back");
-  const [selectedAreaId, setSelectedAreaId] = useState("back-center-lumbar_spine");
-  const [timeIndex, setTimeIndex] = useState(timeline.length - 1);
-  const [activeFilters, setActiveFilters] = useState(() => new Set(allFilterIds()));
+function BodyMapView({ activeTypes, setActiveTypes, selectedRegionId, setSelectedRegionId }) {
+  const selectedRegion = mapRegions.find((region) => region.id === selectedRegionId) || mapRegions[0];
+  const activeRegions = useMemo(
+    () => mapRegions.filter((region) => activeTypes.has(region.type)),
+    [activeTypes]
+  );
 
-  const activeFilterCount = activeFilters.size;
-  const todayFindings = useMemo(() => {
-    const activeDate = timeline[timeIndex].date;
-    return findingsForCurrentFilters(activeDate, activeFilters);
-  }, [timeIndex, activeFilters]);
-
-  function toggleFilter(id) {
-    setActiveFilters((current) => {
+  function toggleType(type) {
+    setActiveTypes((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next.size ? next : new Set([id]);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next.size ? next : new Set([type]);
     });
   }
 
   return (
-    <div className="clinical-app" data-theme={theme}>
-      <Sidebar />
-      <main className="workspace">
-        <header className="topbar">
-          <div>
-            <span className="product-name">ClinicaOS</span>
-            <strong>Dashboard paziente</strong>
-          </div>
-          <div className="top-actions">
-            <div className="global-search">
-              <Search size={15} />
-              <span>Cerca in cartella</span>
-            </div>
-            <IconButton title="Notifiche">
-              <Bell size={17} />
-            </IconButton>
-            <IconButton title="Tema" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
-              {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
-            </IconButton>
-          </div>
-        </header>
+    <section className="body-map-module">
+      <div className="module-header">
+        <div>
+          <span className="kicker">modulo body map</span>
+          <h2>Atlante 3D del paziente</h2>
+        </div>
+        <div className="type-filters">
+          {allTypes.map((type) => (
+            <button
+              type="button"
+              key={type}
+              className={activeTypes.has(type) ? "active" : ""}
+              onClick={() => toggleType(type)}
+            >
+              {filterLabels[type]}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        <PatientStrip />
-
-        <section className="content-grid">
-          <div className="left-column">
-            <PatientList />
-            <section className="side-panel">
-              <div className="panel-header compact">
-                <div>
-                  <h2>Alert</h2>
-                  <p>{todayFindings.length} rilievi visibili</p>
-                </div>
-                <AlertTriangle size={18} />
-              </div>
-              <div className="alert-list">
-                <div>
-                  <strong>L4-L5</strong>
-                  <span>rischio alto, rivalutare estensione</span>
-                </div>
-                <div>
-                  <strong>Filtri attivi</strong>
-                  <span>{activeFilterCount} categorie cliniche</span>
-                </div>
-              </div>
-            </section>
+      <div className="atlas-layout">
+        <BodyMap3D
+          regions={mapRegions}
+          selectedId={selectedRegionId}
+          onSelect={setSelectedRegionId}
+          activeTypes={activeTypes}
+        />
+        <aside className="region-panel">
+          <div className="region-current">
+            <span>{selectedRegion.group}</span>
+            <h3>{selectedRegion.label}</h3>
+            <i className={toneClass(severityLabel(selectedRegion.severity))}>
+              {severityLabel(selectedRegion.severity)}
+            </i>
+            <p>{selectedRegion.summary}</p>
+            <strong>{selectedRegion.next}</strong>
           </div>
 
-          <div className="main-column">
-            <MetricGrid />
-            <MapCard
-              view={view}
-              setView={setView}
-              selectedAreaId={selectedAreaId}
-              setSelectedAreaId={setSelectedAreaId}
-              timeIndex={timeIndex}
-              setTimeIndex={setTimeIndex}
-              activeFilters={activeFilters}
-              toggleFilter={toggleFilter}
-            />
-            <section className="lower-grid">
-              <AssessmentPanel />
-              <PlanPanel />
-              <PromChart />
-              <LibraryPanel />
-              <NetworkPanel />
-            </section>
+          <div className="region-list">
+            {activeRegions.map((region) => {
+              const level = severityLabel(region.severity);
+              return (
+                <button
+                  type="button"
+                  key={region.id}
+                  className={region.id === selectedRegionId ? "active" : ""}
+                  onClick={() => setSelectedRegionId(region.id)}
+                >
+                  <span>
+                    <strong>{region.label}</strong>
+                    <small>{region.side}</small>
+                  </span>
+                  <i className={toneClass(level)}>{level}</i>
+                </button>
+              );
+            })}
           </div>
-
-          <div className="right-column">
-            <LoopPanel />
-            <AiPanel />
-            <section className="card patient-app-card">
-              <div className="panel-header">
-                <div>
-                  <h2>App paziente</h2>
-                  <p>PWA collegata alla cartella</p>
-                </div>
-                <Dumbbell size={18} />
-              </div>
-              <div className="app-checks">
-                <span>
-                  <CheckCircle2 size={15} />
-                  piano esercizi inviato
-                </span>
-                <span>
-                  <CheckCircle2 size={15} />
-                  PROM ogni 10 giorni
-                </span>
-                <span>
-                  <CheckCircle2 size={15} />
-                  feedback RPE richiesto
-                </span>
-              </div>
-            </section>
-          </div>
-        </section>
-      </main>
-    </div>
+        </aside>
+      </div>
+    </section>
   );
 }
 
-function findingsForCurrentFilters(activeDate, activeFilters) {
-  const current = Number(activeDate.replaceAll("-", ""));
-  return findings.filter((finding) => {
-    return activeFilters.has(finding.type) && Number(finding.date.replaceAll("-", "")) <= current;
-  });
+function AssessmentView() {
+  return (
+    <section className="simple-view">
+      <div className="focus-panel">
+        <span className="kicker">valutazione</span>
+        <h2>Tre misure, poi aggiorni la mappa.</h2>
+      </div>
+      <div className="clean-list">
+        {assessmentItems.map((item) => (
+          <button type="button" key={item.label}>
+            <span>
+              <strong>{item.label}</strong>
+              <small>ultimo valore</small>
+            </span>
+            <b>{item.value}</b>
+            <i className={toneClass(item.state)}>{item.state}</i>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PlanView() {
+  return (
+    <section className="simple-view">
+      <div className="focus-panel">
+        <span className="kicker">piano</span>
+        <h2>Una settimana alla volta.</h2>
+      </div>
+      <div className="clean-list">
+        {planItems.map((item) => (
+          <button type="button" key={`${item.day}-${item.title}`}>
+            <span>
+              <strong>{item.title}</strong>
+              <small>{item.day}</small>
+            </span>
+            <i>{item.state}</i>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MonitorView() {
+  return (
+    <section className="simple-view">
+      <div className="focus-panel">
+        <span className="kicker">monitoraggio</span>
+        <h2>Solo i trend che cambiano una decisione.</h2>
+      </div>
+      <div className="metric-row">
+        {promItems.map((item) => (
+          <div key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <small>{item.trend}</small>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AssistantPanel() {
+  return (
+    <aside className="assistant-panel">
+      <div>
+        <Brain size={18} />
+        <span>assistente clinico</span>
+      </div>
+      <p>La sintesi resta una bozza: conferma prima di salvare.</p>
+      <button type="button">
+        <Sparkles size={16} />
+        prepara sintesi
+      </button>
+    </aside>
+  );
+}
+
+function ActiveView(props) {
+  if (props.activeSection === "map") return <BodyMapView {...props} />;
+  if (props.activeSection === "assessment") return <AssessmentView />;
+  if (props.activeSection === "plan" || props.activeSection === "action") return <PlanView />;
+  if (props.activeSection === "monitor") return <MonitorView />;
+  return <TodayView setActiveSection={props.setActiveSection} />;
+}
+
+export default function ClinicalPlatformApp() {
+  const [theme, setTheme] = useState("light");
+  const [activeSection, setActiveSection] = useState("today");
+  const [selectedRegionId, setSelectedRegionId] = useState("lumbar-l4-l5");
+  const [activeTypes, setActiveTypes] = useState(() => new Set(allTypes));
+
+  return (
+    <div className="app-shell" data-theme={theme}>
+      <AppHeader theme={theme} setTheme={setTheme} />
+      <PatientSummary setActiveSection={setActiveSection} />
+      <div className="work-area">
+        <SectionNav activeSection={activeSection} setActiveSection={setActiveSection} />
+        <main className="active-view">
+          <ActiveView
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            activeTypes={activeTypes}
+            setActiveTypes={setActiveTypes}
+            selectedRegionId={selectedRegionId}
+            setSelectedRegionId={setSelectedRegionId}
+          />
+        </main>
+        <AssistantPanel />
+      </div>
+    </div>
+  );
 }

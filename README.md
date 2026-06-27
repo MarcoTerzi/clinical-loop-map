@@ -3,10 +3,10 @@
 Prototype web app for a patient-centered clinical record with:
 
 - detailed 2D body map with anterior/posterior views
-- 153 anatomical hotspots grouped by topographic region
-- symptoms, dysfunctions, historical events, ROM and strength filters
-- clinical loop: reason, assessment, plan, action, monitoring
-- assessment, activity plan, PROMs, MyLab, network and assisted review panels
+- dedicated interactive 3D body map module built with Three.js
+- selectable clinical regions with severity and next-step context
+- simplified clinical loop: today, body map, assessment, plan, monitoring
+- focused assessment, plan and PROM panels
 
 The app is static and uses mock clinical data. It does not require a database,
 server secrets or runtime environment variables.
