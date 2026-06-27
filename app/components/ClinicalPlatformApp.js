@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Brain,
@@ -11,9 +11,13 @@ import {
   Dumbbell,
   FileText,
   HeartPulse,
+  KeyRound,
   ListChecks,
+  LoaderCircle,
   LockKeyhole,
+  LogOut,
   Map,
+  Mail,
   MessageSquare,
   Moon,
   Search,
@@ -33,6 +37,7 @@ import {
   patients,
   todayActions,
 } from "@/app/data/productData";
+import { getSupabaseClient, supabaseConfig } from "@/app/lib/supabaseClient";
 
 const practitionerSections = [
   { id: "today", label: "Oggi", icon: ListChecks },
@@ -61,6 +66,11 @@ const filterLabels = {
 
 const allTypes = Object.keys(filterLabels);
 
+function getLockedRole(session) {
+  const role = session?.user?.app_metadata?.clinicaos_role || session?.user?.app_metadata?.role;
+  return role === "practitioner" || role === "patient" ? role : null;
+}
+
 function severityLabel(value) {
   if (value >= 0.75) return "critico";
   if (value >= 0.45) return "moderato";
@@ -73,12 +83,13 @@ function toneClass(value) {
   return "tone-low";
 }
 
-function RoleSwitch({ role, setRole }) {
+function RoleSwitch({ role, setRole, lockedRole }) {
   return (
     <div className="role-switch" aria-label="Ruolo">
       <button
         type="button"
         className={role === "practitioner" ? "active" : ""}
+        disabled={Boolean(lockedRole && lockedRole !== "practitioner")}
         onClick={() => setRole("practitioner")}
       >
         <UserRound size={16} />
@@ -87,6 +98,7 @@ function RoleSwitch({ role, setRole }) {
       <button
         type="button"
         className={role === "patient" ? "active" : ""}
+        disabled={Boolean(lockedRole && lockedRole !== "patient")}
         onClick={() => setRole("patient")}
       >
         <HeartPulse size={16} />
@@ -105,6 +117,9 @@ function AppHeader({
   patientMenuOpen,
   setPatientMenuOpen,
   onSelectPatient,
+  session,
+  onSignOut,
+  lockedRole,
 }) {
   return (
     <header className="app-header">
@@ -118,7 +133,7 @@ function AppHeader({
         </div>
       </div>
 
-      <RoleSwitch role={role} setRole={setRole} />
+      <RoleSwitch role={role} setRole={setRole} lockedRole={lockedRole} />
 
       <div className="header-actions">
         {role === "practitioner" && (
@@ -154,6 +169,10 @@ function AppHeader({
             )}
           </div>
         )}
+        <div className="account-pill" title={session?.user?.email || "Account"}>
+          <ShieldCheck size={16} />
+          <span>{session?.user?.email || "utente"}</span>
+        </div>
         <button
           type="button"
           className="icon-action"
@@ -163,9 +182,223 @@ function AppHeader({
         >
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
         </button>
+        <button type="button" className="icon-action" aria-label="Esci" title="Esci" onClick={onSignOut}>
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   );
+}
+
+function AuthGate({ children, theme, setTheme }) {
+  const supabase = getSupabaseClient();
+  const [session, setSession] = useState(null);
+  const [initializing, setInitializing] = useState(supabaseConfig.isConfigured);
+  const [mode, setMode] = useState("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      setInitializing(false);
+      return undefined;
+    }
+
+    let mounted = true;
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (mounted) setSession(data.session || null);
+      })
+      .finally(() => {
+        if (mounted) setInitializing(false);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) setSession(nextSession || null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!supabase || submitting) return;
+
+    setSubmitting(true);
+    setMessage("");
+
+    const cleanEmail = email.trim();
+    const credentials = { email: cleanEmail, password };
+    const result =
+      mode === "sign-up" && supabaseConfig.allowSignup
+        ? await supabase.auth.signUp({
+            ...credentials,
+            options: {
+              emailRedirectTo:
+                typeof window === "undefined"
+                  ? undefined
+                  : `${window.location.origin}${window.location.pathname}`,
+            },
+          })
+        : await supabase.auth.signInWithPassword(credentials);
+
+    setSubmitting(false);
+
+    if (result.error) {
+      setMessage(result.error.message);
+      return;
+    }
+
+    if (mode === "sign-up" && !result.data.session) {
+      setMessage("Account creato. Controlla la mail per confermare l'accesso.");
+      return;
+    }
+
+    setPassword("");
+  }
+
+  async function handleSignOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+  }
+
+  if (!supabaseConfig.isConfigured) {
+    return (
+      <main className="auth-shell" data-theme={theme}>
+        <button
+          type="button"
+          className="auth-theme"
+          aria-label="Tema"
+          title="Tema"
+          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+        >
+          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
+        <section className="auth-panel">
+          <div className="auth-brand">
+            <div className="brand-mark">
+              <HeartPulse size={22} />
+            </div>
+            <div>
+              <span>ClinicaOS</span>
+              <strong>Supabase non configurato</strong>
+            </div>
+          </div>
+          <div className="auth-copy">
+            <h1>Accesso bloccato finche manca Supabase.</h1>
+            <p>Serve un progetto Supabase personale con URL pubblico e publishable key.</p>
+          </div>
+          <div className="config-list">
+            <code>NEXT_PUBLIC_SUPABASE_URL</code>
+            <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (initializing) {
+    return (
+      <main className="auth-shell" data-theme={theme}>
+        <section className="auth-panel loading-panel">
+          <LoaderCircle size={28} />
+          <strong>Controllo sessione</strong>
+        </section>
+      </main>
+    );
+  }
+
+  if (!session) {
+    const isSignUp = supabaseConfig.allowSignup && mode === "sign-up";
+
+    return (
+      <main className="auth-shell" data-theme={theme}>
+        <button
+          type="button"
+          className="auth-theme"
+          aria-label="Tema"
+          title="Tema"
+          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+        >
+          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
+        <section className="auth-panel">
+          <div className="auth-brand">
+            <div className="brand-mark">
+              <HeartPulse size={22} />
+            </div>
+            <div>
+              <span>ClinicaOS</span>
+              <strong>{isSignUp ? "Crea accesso" : "Accesso riservato"}</strong>
+            </div>
+          </div>
+
+          <div className="auth-copy">
+            <h1>{isSignUp ? "Registra un account." : "Entra con le credenziali."}</h1>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label>
+              <span>Email</span>
+              <i>
+                <Mail size={16} />
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+              </i>
+            </label>
+            <label>
+              <span>Password</span>
+              <i>
+                <KeyRound size={16} />
+                <input
+                  type="password"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
+                  value={password}
+                  minLength={8}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </i>
+            </label>
+            {message && <p className="auth-message">{message}</p>}
+            <button type="submit" disabled={submitting}>
+              {submitting && <LoaderCircle size={16} />}
+              {isSignUp ? "crea account" : "accedi"}
+            </button>
+          </form>
+
+          {supabaseConfig.allowSignup && (
+            <button
+              type="button"
+              className="auth-mode"
+              onClick={() => {
+                setMode(isSignUp ? "sign-in" : "sign-up");
+                setMessage("");
+              }}
+            >
+              {isSignUp ? "ho gia un account" : "crea un nuovo accesso"}
+            </button>
+          )}
+        </section>
+      </main>
+    );
+  }
+
+  return children({ session, onSignOut: handleSignOut });
 }
 
 function PatientSummary({ role, selectedPatient, setActiveSection }) {
@@ -595,8 +828,7 @@ function ActiveView(props) {
   return <TodayView {...props} />;
 }
 
-export default function ClinicalPlatformApp() {
-  const [theme, setTheme] = useState("light");
+function AuthenticatedShell({ theme, setTheme, session, onSignOut }) {
   const [role, setRole] = useState("practitioner");
   const [activeSection, setActiveSection] = useState("today");
   const [selectedPatientId, setSelectedPatientId] = useState("giulia");
@@ -611,6 +843,13 @@ export default function ClinicalPlatformApp() {
   const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) || patients[0];
   const patientRegions = mapRegions.filter((region) => selectedPatient.regionIds.includes(region.id));
   const workup = patientWorkups[selectedPatient.id] || patientWorkups.giulia;
+  const lockedRole = getLockedRole(session);
+
+  useEffect(() => {
+    if (lockedRole && lockedRole !== role) {
+      switchRole(lockedRole, lockedRole);
+    }
+  }, [lockedRole, role]);
 
   function selectPatient(patientId) {
     const nextPatient = patients.find((patient) => patient.id === patientId) || patients[0];
@@ -622,7 +861,8 @@ export default function ClinicalPlatformApp() {
     setPatientMenuOpen(false);
   }
 
-  function switchRole(nextRole) {
+  function switchRole(nextRole, lockedRole) {
+    if (lockedRole && nextRole !== lockedRole) return;
     setRole(nextRole);
     setActiveSection(nextRole === "practitioner" ? "today" : "home");
     setPatientMenuOpen(false);
@@ -632,13 +872,16 @@ export default function ClinicalPlatformApp() {
     <div className="app-shell" data-theme={theme} data-role={role} data-section={activeSection}>
       <AppHeader
         role={role}
-        setRole={switchRole}
+        setRole={(nextRole) => switchRole(nextRole, lockedRole)}
         theme={theme}
         setTheme={setTheme}
         selectedPatient={selectedPatient}
         patientMenuOpen={patientMenuOpen}
         setPatientMenuOpen={setPatientMenuOpen}
         onSelectPatient={selectPatient}
+        session={session}
+        onSignOut={onSignOut}
+        lockedRole={lockedRole}
       />
       <PatientSummary role={role} selectedPatient={selectedPatient} setActiveSection={setActiveSection} />
       <div className="work-area">
@@ -667,5 +910,17 @@ export default function ClinicalPlatformApp() {
         <AssistantPanel role={role} draftOpen={draftOpen} setDraftOpen={setDraftOpen} />
       </div>
     </div>
+  );
+}
+
+export default function ClinicalPlatformApp() {
+  const [theme, setTheme] = useState("light");
+
+  return (
+    <AuthGate theme={theme} setTheme={setTheme}>
+      {({ session, onSignOut }) => (
+        <AuthenticatedShell theme={theme} setTheme={setTheme} session={session} onSignOut={onSignOut} />
+      )}
+    </AuthGate>
   );
 }

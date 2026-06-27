@@ -51,7 +51,8 @@ svg {
   display: block;
 }
 
-.app-shell[data-theme="dark"] {
+.app-shell[data-theme="dark"],
+.auth-shell[data-theme="dark"] {
   --bg: #0c1118;
   --surface: #121923;
   --surface-2: #172130;
@@ -66,6 +67,175 @@ svg {
   --green-soft: rgba(22, 163, 74, 0.18);
   --amber-soft: rgba(217, 119, 6, 0.2);
   --red-soft: rgba(220, 38, 38, 0.2);
+}
+
+.auth-shell {
+  min-height: 100dvh;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+
+.auth-theme {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--control);
+  background: var(--surface);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(440px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
+  padding: 22px;
+  display: grid;
+  gap: 22px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-brand span,
+.auth-form span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-brand strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.auth-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-copy h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.02;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.auth-copy p,
+.auth-message {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-form i {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: var(--control);
+  background: var(--surface-2);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  font-style: normal;
+}
+
+.auth-form input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.auth-form button,
+.auth-mode {
+  min-height: 44px;
+  border-radius: var(--control);
+  font-weight: 500;
+}
+
+.auth-form button {
+  border: 0;
+  background: var(--accent);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.auth-form button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.auth-mode {
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.auth-message {
+  border-radius: var(--control);
+  background: var(--amber-soft);
+  color: var(--amber);
+  padding: 10px;
+}
+
+.config-list {
+  display: grid;
+  gap: 8px;
+}
+
+.config-list code {
+  border: 1px solid var(--line);
+  border-radius: var(--control);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+.loading-panel {
+  place-items: center;
+  text-align: center;
+}
+
+.loading-panel svg,
+.auth-form button svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .app-shell {
@@ -162,8 +332,14 @@ svg {
   color: #ffffff;
 }
 
+.role-switch button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .search-pill,
-.icon-action {
+.icon-action,
+.account-pill {
   height: 40px;
   border: 1px solid var(--line);
   border-radius: var(--control);
@@ -246,6 +422,23 @@ svg {
   width: 40px;
   display: grid;
   place-items: center;
+}
+
+.account-pill {
+  max-width: 230px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  min-width: 0;
+}
+
+.account-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
 }
 
 .patient-focus {
@@ -782,9 +975,23 @@ svg {
     display: grid;
   }
 
+  .header-actions {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    width: 100%;
+  }
+
+  .patient-picker {
+    grid-column: 1 / -1;
+  }
+
   .search-pill {
     min-width: 0;
     width: 100%;
+  }
+
+  .account-pill {
+    max-width: none;
   }
 
   .role-switch {
