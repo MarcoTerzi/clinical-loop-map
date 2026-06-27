@@ -130,8 +130,36 @@ svg {
   font-weight: 500;
 }
 
-.header-actions {
+.header-actions,
+.role-switch {
   gap: 8px;
+}
+
+.role-switch {
+  display: flex;
+  align-items: center;
+  justify-self: center;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--control);
+  background: var(--surface);
+}
+
+.role-switch button {
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+}
+
+.role-switch button.active {
+  background: var(--accent);
+  color: #ffffff;
 }
 
 .search-pill,
@@ -149,6 +177,69 @@ svg {
   align-items: center;
   gap: 8px;
   padding: 0 12px;
+}
+
+.patient-picker {
+  position: relative;
+}
+
+.patient-picker .search-pill {
+  min-width: 246px;
+  justify-content: flex-start;
+}
+
+.patient-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: min(420px, calc(100vw - 24px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.patient-menu button {
+  min-height: 64px;
+  border: 1px solid transparent;
+  border-radius: var(--control);
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  text-align: left;
+}
+
+.patient-menu button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.patient-menu span {
+  display: grid;
+  gap: 2px;
+}
+
+.patient-menu strong {
+  font-weight: 500;
+}
+
+.patient-menu small {
+  color: var(--muted);
+}
+
+.patient-menu i {
+  align-self: start;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-style: normal;
 }
 
 .icon-action {
@@ -339,6 +430,7 @@ svg {
 .action-stack button:hover,
 .loop-strip button:hover,
 .clean-list button:hover,
+.clean-list button.active,
 .region-list button:hover,
 .region-list button.active {
   border-color: var(--accent);
@@ -546,6 +638,11 @@ svg {
   padding: 16px;
 }
 
+.two-column-view {
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  align-items: start;
+}
+
 .clean-list {
   padding: 10px;
   display: grid;
@@ -611,6 +708,32 @@ svg {
   border: 1px solid var(--line);
 }
 
+.draft-box {
+  border: 1px solid var(--line);
+  border-radius: var(--control);
+  background: var(--surface-2);
+  padding: 12px;
+  display: grid !important;
+  gap: 8px !important;
+  color: var(--text) !important;
+}
+
+.draft-box strong {
+  font-weight: 500;
+}
+
+.draft-box span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.draft-box button {
+  width: 100%;
+  background: var(--accent);
+  color: #ffffff;
+  border: 0;
+}
+
 @media (max-width: 1180px) {
   .work-area {
     grid-template-columns: 1fr;
@@ -645,9 +768,11 @@ svg {
 
   .app-header,
   .header-actions,
+  .role-switch,
   .patient-focus,
   .module-header,
   .atlas-layout,
+  .two-column-view,
   .metric-row {
     grid-template-columns: 1fr;
   }
@@ -662,9 +787,32 @@ svg {
     width: 100%;
   }
 
+  .role-switch {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .role-switch button {
+    justify-content: center;
+  }
+
+  .patient-picker .search-pill {
+    width: 100%;
+    min-width: 0;
+  }
+
   .patient-focus {
     min-height: 0;
     padding: 18px;
+  }
+
+  .app-shell[data-role="practitioner"][data-section="map"] .patient-focus,
+  .app-shell[data-role="patient"][data-section="consents"] .patient-focus,
+  .app-shell[data-role="patient"][data-section="program"] .patient-focus,
+  .app-shell[data-role="patient"][data-section="exercises"] .patient-focus,
+  .app-shell[data-role="patient"][data-section="proms"] .patient-focus {
+    display: none;
   }
 
   .patient-state {
